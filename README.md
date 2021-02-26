@@ -1,2 +1,2 @@
 # smite-api
-Unofficial Smite REST API
+Simple Smite API wrapper written in Python
