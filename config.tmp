@@ -1,0 +1,14 @@
+# Flask API
+SERVER_VERSION = "1.0.0"    # Server version
+SERVER_HOST = "0.0.0.0"     # Default server host
+SERVER_PORT = 5002          # Default server port
+BASE_ENDPOINT = "/api/v1/"  # Default base URL for the API public methods
+DEBUG = True                # Flask debug toggle
+
+# Hi-Rez Smite API
+DEV_ID = "CHANGE_ME"
+AUTH_KEY = "CHANGE_ME"
+SMITE_API_URL = "http://api.smitegame.com/smiteapi.svc"
+RESPONSE_TYPE = "Json"
+PLATFORM = "pc"
+LANGUAGE = 1
