@@ -1,4 +1,4 @@
-import flask, os, threading, hashlib, requests
+import flask
 from smite.api import SmiteAPI
 from datetime import datetime
 from flask import request, jsonify, abort
@@ -43,13 +43,7 @@ def generic_endpoint(path):
     # Return server response
     res = api_handler.call_generic_method(method, params)
 
-    response = api.response_class(
-        response=res,
-        status=200,
-        mimetype='application/json'
-    )
-
-    return response
+    return jsonify(res)
 
 def run_server():
     """Run flask server"""

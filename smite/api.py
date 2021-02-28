@@ -1,4 +1,4 @@
-import requests, hashlib, json, multiprocessing, time
+import requests, hashlib, json, threading, time
 from datetime import datetime
 
 class SmiteAPI:
@@ -25,20 +25,33 @@ class SmiteAPI:
         self.__session_token = None
         self.__session_thread = None
 
-    def get_utc_date():
+    def __threaded_get_session_token(self, delay):
+        while True:
+            self.get_session_token()
+            time.sleep(delay)
+
+    def __get_utc_date(self):
         """Return a UTC date string"""
 
         return datetime.utcnow().strftime(SmiteAPI.DEFAULT_UTC_FORMAT)
 
-    def create_signature(self, method):
+    def __create_signature(self, method):
         """Return a MD5 string signature
 
         Create a Smite API signature based on keys and
         called API method
         """
 
-        signature = f"{self.dev_id}{method}{self.auth_key}{SmiteAPI.get_utc_date()}"
+        signature = f"{self.dev_id}{method}{self.auth_key}{self.__get_utc_date()}"
         return hashlib.md5(signature.encode(SmiteAPI.DEFAULT_ENCODING)).hexdigest()
+
+    def __create_endpoint(self, method, params=[]):
+        """Return a built endpoint URL for the smite API"""
+
+        params_string = f"/{'/'.join(params)}/" if len(params) > 0 else "/"
+        signature = self.__create_signature(method)
+        endpoint = f"{self.base_url}/{method}{self.response_type}/{self.dev_id}/{signature}/{self.__session_token}/{self.__get_utc_date()}{params_string}{self.language}"
+        return endpoint
 
     def get_session_token(self):
         """Return and stores a session token
@@ -46,35 +59,24 @@ class SmiteAPI:
         Those tokens are valid for 15 minutes
         """
 
-        signature = self.create_signature(SmiteAPI.CREATE_SESSION_METHOD)
-        endpoint = f"{self.base_url}/{SmiteAPI.CREATE_SESSION_METHOD}{self.response_type}/{self.dev_id}/{signature}/{SmiteAPI.get_utc_date()}"
+        signature = self.__create_signature(SmiteAPI.CREATE_SESSION_METHOD)
+        endpoint = f"{self.base_url}/{SmiteAPI.CREATE_SESSION_METHOD}{self.response_type}/{self.dev_id}/{signature}/{self.__get_utc_date()}"
         res = requests.get(endpoint)
         json_body = json.loads(res.content.decode(SmiteAPI.DEFAULT_ENCODING))
         self.__session_token = json_body[SmiteAPI.CREATE_SESSION_FIELD]
         return json_body[SmiteAPI.CREATE_SESSION_FIELD]
 
-    def create_endpoint(self, method, params=[]):
-        """Return a built endpoint URL for the smite API"""
-
-        params_string = f"/{'/'.join(params)}/" if len(params) > 0 else "/"
-        signature = self.create_signature(method)
-        endpoint = f"{self.base_url}/{method}{self.response_type}/{self.dev_id}/{signature}/{self.__session_token}/{SmiteAPI.get_utc_date()}{params_string}{self.language}"
-        return endpoint
-
     def create_session_token_thread(self, delay=CREATE_SESSION_DELAY):
         """Creates a thread to retrieve a valid session token every <delay> seconds"""
 
-        if self.__session_thread != None:
-            self.__session_thread.terminate()
-            self.__session_thread = None
+        if self.__session_thread == None:
+            thread = threading.Thread(target=self.__threaded_get_session_token, args=(delay,))
+            thread.daemon = True
+            self.__session_thread = thread
+            thread.start()
 
-        thread = multiprocessing.Process(target=self.threaded_get_session_token, args=(delay,))
-        thread.daemon = True
-        self.__session_thread = thread
-        thread.start()
-
-    def call_generic_method(self, method, params):
-        """Return a Smite API response
+    def call_generic_method(self, method, params=[], raw=False):
+        """Return a Smite API response as string
         
         Calls the specified method and returns
         its response
@@ -84,13 +86,11 @@ class SmiteAPI:
             # Attempt to get session token first
             self.get_session_token()
 
-        res = requests.get(self.create_endpoint(method, params))
-        return res.content.decode(SmiteAPI.DEFAULT_ENCODING)
-
-    def threaded_get_session_token(self, delay):
-        while True:
-            self.get_session_token()
-            time.sleep(delay)
+        res = requests.get(self.__create_endpoint(method, params))
+        data = res.content.decode(SmiteAPI.DEFAULT_ENCODING)
+        if not raw:
+            data = json.loads(data)
+        return data
 
 if __name__ == "__main__":
     pass
